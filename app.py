@@ -1,15 +1,20 @@
 from flask import Flask, render_template
 import psycopg2
+import os
 
-def get_db_connection():
-    return psycopg2.connect(
-        dbname="k29photo",
-        user="postgres",
-        password="than252",
-        host="localhost",
-        port="5432",
-        cursor_factory=psycopg2.extras.RealDictCursor
-    )
+DB_PASS = os.environ.get("PGPASSWORD")
+DB_NAME="k29photo"
+DB_USER="postgres"
+DB_HOST="localhost"
+DB_PORT="5432"
+
+conn = psycopg2.connect(
+                        dbname=DB_NAME,
+                        user=DB_USER,
+                        password=DB_PASS,
+                        host=DB_HOST,
+                        port=DB_PORT,
+                        )
 
 @app.route("/")
 def home():
@@ -17,14 +22,8 @@ def home():
 
 @app.route("/users")
 def users():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, first_name, last_name, email FROM users;")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
 
-    return render_template("users.html", users=rows)
+    return render_template("users.html")
 
 if __name__ == "__main__":
-    app.run(debug=True, port = 5001)
+    app.run()
