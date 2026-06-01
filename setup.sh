@@ -2,7 +2,7 @@ DB_NAME="k29photo"
 DB_USER="postgres"
 DB_HOST="localhost"
 DB_PORT="5432"
-APP_FILE="myapp.py"
+APP_FILE="app.py"
 
 read -s -p "Enter postgres user password: " DB_PASS
 echo
