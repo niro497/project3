@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 import psycopg2
 import psycopg2.extras
 
@@ -16,7 +16,7 @@ def get_db_connection():
 
 @app.route("/")
 def home():
-    return "k29photo works"
+    return render_template("home.html")
 
 @app.route("/users")
 def users():
@@ -27,7 +27,7 @@ def users():
     cur.close()
     conn.close()
 
-    return {"users": rows}
+    return render_template("users.html", users=rows)
 
 if __name__ == "__main__":
     app.run(debug=True)
