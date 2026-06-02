@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, session
+import base64
 import psycopg2
 import os
 
@@ -156,12 +157,6 @@ def friends():
 
 @app.route("/albums")
 def view_albums():
-    current_user_id = session.get("user_id")
-    
-    #Αν δεν είναι συνδεδεμένος τον βάζουμε να συνδεθεί
-    if not current_user_id:
-        return redirect(url_for("login"))
-
     cursor = conn.cursor()
     cursor.execute("select album_id, album_name from albums")
     albums = cursor.fetchall()
@@ -170,20 +165,31 @@ def view_albums():
 
 @app.route('/albums/<int:album_id>')
 def view_album(album_id):
-    current_user_id = session.get("user_id")
-    
-    #Αν δεν είναι συνδεδεμένος τον βάζουμε να συνδεθεί
-    if not current_user_id:
-        return redirect(url_for("login"))
     cursor = conn.cursor()
     cursor.execute("""
-                   SELECT p.photo_id, p.caption
+                   SELECT p.photo_id, p.caption, p.data
                    FROM photos p
                    WHERE p.album_id = %s
                    """, (album_id,))
     photos = cursor.fetchall()
+
+    photos_list = []
+
+    for photo in photos:
+        photo_id, photo_caption, photo_data = photo
+        encoded_photo = base64.b64encode(photo_data).decode('utf-8')
+        photo_src = f"data:image/*;base64,{encoded_photo}"
+        photos_list.append({
+            'photo_id': photo_id,
+            'caption': photo_caption,
+            'data': photo_src
+        })
+
     cursor.close()
-    return render_template("album.html", photos=photos, album_id=album_id)
+    return render_template("album.html", photos=photos_list, album_id=album_id)
 
 if __name__ == "__main__":
     app.run()
+
+
+

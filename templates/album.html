@@ -10,7 +10,8 @@
         <ul>
             {% for photo in photos %}
                 <li>
-                    <a href="/photos/{{ photo[0] }}">{{ photo[2] }}</a>
+                    <a href="/photos/{{ photo['photo_id'] }}">{{ photo['data'] }}</a>
+                    <caption>{{photo['caption']}}</caption>
                 </li>
             {% endfor %}
         </ul>
