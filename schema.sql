@@ -22,9 +22,9 @@ CREATE TABLE friends (
     user1_id INT NOT NULL,
     user2_id INT NOT NULL,
     PRIMARY KEY (user1_id, user2_id),
-    FOREIGN KEY (user1_id) REFERENCES users(user2_id) ON DELETE CASCADE,
-    FOREIGN KEY (user1_id) REFERENCES users(user2_id) ON DELETE CASCADE,
-    CHECK (user1_id < user2_id); -- δεν το καταλαβαίνω
+    FOREIGN KEY (user1_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (user2_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CHECK (user1_id < user2_id) -- δεν το καταλαβαίνω
 );
 
 CREATE TABLE albums (
