@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Top 10 Users</title>
+</head>
+<body>
+    <h2>Top 10 Users</h2>
+    <table border="1">
+        <tr>
+            <th>User_id</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Contribution Score</th>
+        </tr>
+        {% for u in top_users %}
+        <tr>
+            <td>{{ u[0] }}</td>
+            <td>{{ u[1] }}</td>
+            <td>{{ u[2] }}</td>
+            <td>{{ u[3] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <br><a href="/">Επιστροφή</a>
+</body>
+</html>
