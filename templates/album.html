@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Album {{ album_id }}</title>
+</head>
+<body>
+    <h1>Album {{ album_id }}</h1>
+    {% if photos %}
+        <ul>
+            {% for photo in photos %}
+                <li>
+                    <a href="/photos/{{ photo[0] }}">{{ photo[2] }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No photos found.</p>
+    {% endif %}
+
+    <br>
+    <a href="/albums">Back to Albums</a>
+</body>
+</html>

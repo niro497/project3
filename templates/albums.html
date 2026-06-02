@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Albums</title>
+</head>
+<body>
+    <h1>Albums</h1>
+    {% if albums %}
+        <ul>
+            {% for album in albums %}
+                <li>
+                    <a href="/albums/{{ album[0] }}">{{ album[1] }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No albums found.</p>
+    {% endif %}
+
+    <br>
+    <a href="/">Back to Home</a>
+</body>
+</html>

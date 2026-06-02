@@ -35,7 +35,6 @@ def register():
         
         cursor = conn.cursor()
 
-
         cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,));
         if cursor.fetchone():
             flash("This email is being used! Try another one.", "error")
@@ -153,6 +152,38 @@ def friends():
 
 
     return render_template("friends.html", friends=my_friends)
+
+
+@app.route("/albums")
+def view_albums():
+    current_user_id = session.get("user_id")
+    
+    #Αν δεν είναι συνδεδεμένος τον βάζουμε να συνδεθεί
+    if not current_user_id:
+        return redirect(url_for("login"))
+
+    cursor = conn.cursor()
+    cursor.execute("select album_id, album_name from albums")
+    albums = cursor.fetchall()
+    cursor.close()
+    return render_template("albums.html", albums = albums)
+
+@app.route('/albums/<int:album_id>')
+def view_album(album_id):
+    current_user_id = session.get("user_id")
+    
+    #Αν δεν είναι συνδεδεμένος τον βάζουμε να συνδεθεί
+    if not current_user_id:
+        return redirect(url_for("login"))
+    cursor = conn.cursor()
+    cursor.execute("""
+                   SELECT p.photo_id, p.caption
+                   FROM photos p
+                   WHERE p.album_id = %s
+                   """, (album_id,))
+    photos = cursor.fetchall()
+    cursor.close()
+    return render_template("album.html", photos=photos, album_id=album_id)
 
 if __name__ == "__main__":
     app.run()
