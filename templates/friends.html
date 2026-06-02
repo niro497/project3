@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <title>View and add friends</title>
+</head>
+<body>
+
+    <h1>View and add friends</h1>
+    <h2>My fiends</h2>
+    {% if friends %}
+        <ul>
+            {% for friend in friends %}
+                <li>{{ friend[0] }} {{ friend[1] }} {{ friend[2] }} {{ friend[3] }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Friends found: 0</p>
+    {% endif %}
+
+    <br>
+    <a href="/">Επιστροφή στην Αρχική</a>
+</body>
+</html>

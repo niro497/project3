@@ -1,0 +1,12 @@
+<h2>Search Users</h2>
+<form method="get">
+  <input name="q" placeholder="Search users">
+</form>
+{% for u in users %}
+  <p>
+    {{ u[1] }} {{ u[2] }}
+    <form method="post" action="/add-friend/{{ u[0] }}">
+      <button>Add Friend</button>
+    </form>
+  </p>
+{% endfor %}

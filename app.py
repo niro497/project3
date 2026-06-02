@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for, session
 import psycopg2
 import os
 
@@ -93,6 +93,66 @@ def top_users():
 
     cursor.close()
     return render_template("top-users.html", top_users=top_ten_users)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user_id" in session:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        email = request.form["email"]
+        password = request.form["password"]
+
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT user_id, password FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        cursor.close()
+
+        #Τσεκάρουμε αν υπαρχει ο χρήστης και ο κωδικός του
+        if user and user[1] == password:
+
+            session["user_id"] = user[0]
+            
+            return redirect(url_for("login_success"))
+        else:
+            flash("Wrong email or password. Try again", "error")
+    return render_template("login.html")
+
+@app.route("/login-success")
+def login_success():
+    return render_template("login-success.html")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+@app.route("/friends")
+def friends():
+    current_user_id = session.get("user_id")
+    
+    #Αν δεν είναι συνδεδεμένος τον βάζουμε να συνδεθεί
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    cursor = conn.cursor()
+
+    #υποθέτουμε οτι ένας φίλος x είναι φίλος με τον φίλο y αν και μονο αν ο y είναι φιλος με τον x
+    friends_query = """
+        SELECT user_id, first_name, last_name, email 
+        FROM users 
+        WHERE user_id IN (
+            SELECT user2_id FROM friends WHERE user1_id = %s
+            UNION
+            SELECT user1_id FROM friends WHERE user2_id = %s
+        );
+    """
+    cursor.execute(friends_query, (current_user_id, current_user_id))
+    my_friends = cursor.fetchall()
+
+
+    return render_template("friends.html", friends=my_friends)
 
 if __name__ == "__main__":
     app.run()

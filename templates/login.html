@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Σύνδεση - k29photo</title>
+</head>
+<body>
+
+    <h2>Σύνδεση στο Σύστημα</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <p><b>{{ message }}</b></p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/login">
+        <label>Email:</label><br>
+        <input type="email" name="email" required><br><br>
+        
+        <label>Password:</label><br>
+        <input type="password" name="password" required><br><br>
+        
+        <button type="submit">login</button>
+    </form>
+
+    <p>No account; <a href="/register">Register</a></p>
+    <a href="/">Homepage</a>
+
+</body>
+</html>
