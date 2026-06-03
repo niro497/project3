@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Photo</title>
+</head>
+<body>
+    <h1>Upload Photo</h1>\
+
+    <form method="POST" enctype="multipart/form-data">
+        <label>Caption:</label>
+        <input type="text" name="caption" required>
+        <br>
+        <label>Photo:</label>
+        <input type="file" name="photo" accept="image/*" required>
+        <br>
+        <input type="submit" value="Upload">
+    </form>
+
+    <br>
+
+    <a href="/albums">Back to Albums</a>
+</body>
+</html>

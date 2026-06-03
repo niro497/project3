@@ -178,7 +178,7 @@ def view_album(album_id):
     for photo in photos:
         photo_id, photo_caption, photo_data = photo
         encoded_photo = base64.b64encode(photo_data).decode('utf-8')
-        photo_src = f"data:image/*;base64,{encoded_photo}"
+        photo_src = f"data:image/jpeg;base64,{encoded_photo}"
         photos_list.append({
             'photo_id': photo_id,
             'caption': photo_caption,
@@ -187,6 +187,57 @@ def view_album(album_id):
 
     cursor.close()
     return render_template("album.html", photos=photos_list, album_id=album_id)
+
+@app.route("/create-album", methods = ["GET", "POST"])
+def create_album():
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    if request.method == "POST":
+        album_name = request.form["album_name"]
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO albums (user_id, album_name)
+            VALUES (%s, %s)
+        """, (current_user_id, album_name))
+
+        conn.commit()
+        cursor.close()
+
+        return redirect(url_for("view_albums"))
+    
+    return render_template("create-album.html")
+
+@app.route("/albums/<int:album_id>/upload-photo/", methods=["GET", "POST"])
+def upload_photo(album_id):
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    if request.method == "POST":
+        caption = request.form["caption"]
+        photo_file = request.files["photo"]
+
+        photo_data = photo_file.read()
+
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO photos (album_id, caption, data)
+            VALUES (%s, %s, %s)
+        """, (album_id, caption, psycopg2.Binary(photo_data)))
+
+        conn.commit()
+        cursor.close()
+
+        return redirect(url_for("view_album", album_id=album_id))
+    
+    return render_template("upload-photo.html", album_id=album_id)
+
 
 if __name__ == "__main__":
     app.run()

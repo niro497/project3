@@ -1,25 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Album {{ album_id }}</title>
+    <title>{{ album_name }}</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Album {{ album_id }}</h1>
-    {% if photos %}
-        <ul>
-            {% for photo in photos %}
-                <li>
-                    <a href="/photos/{{ photo['photo_id'] }}">{{ photo['data'] }}</a>
-                    <caption>{{photo['caption']}}</caption>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No photos found.</p>
-    {% endif %}
+    <h1>{{ album_name }}</h1>
 
-    <br>
     <a href="/albums">Back to Albums</a>
+
+    <a href="/albums/{{ album_id }}/upload-photo">Upload Photo</a>
+
+    <hr>
+
+    {% if photos %}
+        {% for photo in photos %}
+            <div>
+                <h3>{{ photo.caption }}</h3>
+                <img src="{{ photo.data }}" style="max-width: 300px;">
+            </div>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <p>No photos in this album yet.</p>
+    {% endif %}
 </body>
 </html>
