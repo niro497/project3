@@ -163,6 +163,7 @@ def view_albums():
     cursor.close()
     return render_template("albums.html", albums = albums)
 
+##TODO: if logged in a user should be able to view his albums
 @app.route('/albums/<int:album_id>')
 def view_album(album_id):
     cursor = conn.cursor()
@@ -188,6 +189,7 @@ def view_album(album_id):
     cursor.close()
     return render_template("album.html", photos=photos_list, album_id=album_id)
 
+#TODO: πρέπει να μπορούν να διαγράφουν albums
 @app.route("/create-album", methods = ["GET", "POST"])
 def create_album():
     current_user_id = session.get("user_id")
@@ -218,18 +220,56 @@ def upload_photo(album_id):
     if not current_user_id:
         return redirect(url_for("login"))
     
+    #ο καθε χρησητης μπορει να προσθέσει φωτο μονο στα δικα του album
+    cursor = conn.cursor()
+    cursor.execute("select user_id from albums where album_id = %s", (album_id,))
+    user = cursor.fetchone()
+
+    if user[0] != current_user_id:
+        flash("This album is created from another user. You cannot add a photo here", "error")
+        cursor.close()
+        return redirect(url_for("view_albums"))
+        
     if request.method == "POST":
         caption = request.form["caption"]
         photo_file = request.files["photo"]
+
+        #αν ο χρήστης δεν βαλει τίποτα μπαίνει αυτόματα κενό
+        #επίσης αν ο χρήστης βάλει "Kalokairi    " μετατρέπεται σε "kalokairi"
+        tags_input = request.form.get("tags", "").strip().lower() 
 
         photo_data = photo_file.read()
 
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO photos (album_id, caption, data)
-            VALUES (%s, %s, %s)
-        """, (album_id, caption, psycopg2.Binary(photo_data)))
+                       INSERT INTO photos (album_id, caption, data)
+                       VALUES (%s, %s, %s) RETURNING photo_id 
+                       """, (album_id, caption, psycopg2.Binary(photo_data))) # Xρειαζόμαστε το photo_id για την συσχέτιση photo_tag
+        
+        photo_id = cursor.fetchone()[0]
+
+        if tags_input:
+            tags_list = tags_input.split()
+            for tag_name in tags_list:
+                # Εισαγωγή του tag αν δεν υπάρχει ήδη (λόγω UNIQUE constraint), για α΄το χρειαζόμαστε το ON CONFLICT DO NOTHING
+                cursor.execute("""
+                    INSERT INTO tags (tag_name) 
+                    VALUES (%s) 
+                    ON CONFLICT (tag_name) DO NOTHING 
+                    RETURNING tag_id
+                """, (tag_name,))
+                
+                # Παίρνουμε το tag_id (είτε μπήκε τώρα είτε υπήρχε ήδη)
+                cursor.execute("SELECT tag_id FROM tags WHERE tag_name = %s", (tag_name,))
+                tag_id = cursor.fetchone()[0]
+
+                # Δημιουργία συσχέτισης photo_tags. Δεν μπορεί να προσθέσει την ίδια photo με την ίδια ετικέτα
+                cursor.execute("""
+                    INSERT INTO photo_tags (photo_id, tag_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (photo_id, tag_id))
 
         conn.commit()
         cursor.close()
@@ -238,9 +278,102 @@ def upload_photo(album_id):
     
     return render_template("upload-photo.html", album_id=album_id)
 
+@app.route("/popular-tags")
+def popular_tags():
+    cursor = conn.cursor()
+    cursor.execute("""
+                   SELECT t.tag_name, COUNT(pt.photo_id) AS photo_count
+                   FROM tags t
+                   JOIN photo_tags pt ON t.tag_id = pt.tag_id
+                   GROUP BY t.tag_id, t.tag_name
+                   ORDER BY photo_count DESC
+                   """)
+    tags = cursor.fetchall()
+    cursor.close()
+    
+    return render_template("popular-tags.html", tags=tags)
+
+@app.route("/tags/<tag_name>")
+def view_photos_by_tag(tag_name):
+    view_filter = request.args.get('filter', 'all') # Διαβάζει αν πατήθηκε το "Οι δικές μου"
+    current_user_id = session.get("user_id")
+
+    cursor = conn.cursor()
+
+    # Αν θέλει μόνο τις δικές του
+    if view_filter == 'mine' and not current_user_id:
+        return redirect(url_for("login"))
+    elif view_filter == 'mine':
+        cursor.execute("""
+                    SELECT p.photo_id, p.caption, p.data
+                    FROM photos p
+                    JOIN photo_tags pt ON p.photo_id = pt.photo_id
+                    JOIN tags t ON pt.tag_id = t.tag_id
+                    JOIN albums a ON p.album_id = a.album_id
+                    WHERE t.tag_name = %s AND a.user_id = %s
+                    """, (tag_name, current_user_id,))
+    else:
+        cursor.execute("""
+                    SELECT p.photo_id, p.caption, p.data
+                    FROM photos p
+                    JOIN photo_tags pt ON p.photo_id = pt.photo_id
+                    JOIN tags t ON pt.tag_id = t.tag_id
+                    JOIN albums a ON p.album_id = a.album_id
+                    WHERE t.tag_name = %s
+                    """, (tag_name,))
+
+
+    photos = cursor.fetchall()
+
+    photos_list = []
+    for photo in photos:
+        encoded_photo = base64.b64encode(photo[2]).decode('utf-8')
+        photos_list.append({
+            'photo_id': photo[0],
+            'caption': photo[1],
+            'data': f"data:image/jpeg;base64,{encoded_photo}"
+        })
+
+    cursor.close()
+    return render_template("view-tag.html", photos=photos_list, tag_name=tag_name, filter=view_filter)
+
+
+@app.route("/search", methods=["GET", "POST"])
+def search_photos():
+    if request.method == "POST":
+        search_query = request.form.get("query", "").strip().lower()
+        if not search_query:
+            return render_template("search.html", photos=[])
+
+        tags_list = search_query.split() # Χωρίζει το "ήλιος θάλασσα" σε λίστα: ["ήλιος", "θάλασσα"]
+
+        cursor = conn.cursor()
+        
+        # Βρες τις φωτογραφίες που έχουν ΑΚΡΙΒΩΣ όλες τις λέξεις που δώσαμε
+        query = """
+            SELECT p.photo_id, p.caption, p.data
+            FROM photos p
+            JOIN photo_tags pt ON p.photo_id = pt.photo_id
+            JOIN tags t ON pt.tag_id = t.tag_id
+            WHERE t.tag_name = ANY(%s)
+            GROUP BY p.photo_id, p.caption, p.data
+            HAVING COUNT(DISTINCT t.tag_id) = %s
+        """
+        cursor.execute(query, (tags_list, len(tags_list)))
+        photos = cursor.fetchall()
+
+        photos_list = []
+        for photo in photos:
+            encoded_photo = base64.b64encode(photo[2]).decode('utf-8')
+            photos_list.append({
+                'photo_id': photo[0], 'caption': photo[1], 'data': f"data:image/jpeg;base64,{encoded_photo}"
+            })
+            
+        cursor.close()
+        return render_template("search.html", photos=photos_list, query=search_query)
+
+    return render_template("search.html")
+
 
 if __name__ == "__main__":
     app.run()
-
-
-

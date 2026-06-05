@@ -4,15 +4,21 @@
     <title>Upload Photo</title>
 </head>
 <body>
-    <h1>Upload Photo</h1>\
+    <h1>Upload Photo</h1>
 
     <form method="POST" enctype="multipart/form-data">
         <label>Caption:</label>
         <input type="text" name="caption" required>
-        <br>
+        <br><br>
+
+        <label>Tags (put different tags with a gap: for example "friends party"):</label>
+        <input type="text" name="tags">
+        <br><br>
+
         <label>Photo:</label>
         <input type="file" name="photo" accept="image/*" required>
-        <br>
+        <br><br>
+        
         <input type="submit" value="Upload">
     </form>
 

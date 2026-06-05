@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Photos</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Search Photos by Tags</h1>
+
+    <a href="/">Back to Home</a>
+    <hr>
+
+    <form action="/search" method="POST">
+        <label>Enter tags (separated by space):</label>
+        <input type="text" name="query" value="{{ query if query else '' }}" required>
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    {% if photos %}
+        <h2>Search Results:</h2>
+        {% for photo in photos %}
+            <div>
+                <h3>{{ photo.caption }}</h3>
+                <img src="{{ photo.data }}" style="max-width: 300px;">
+            </div>
+            <hr>
+        {% endfor %}
+    {% elif query %}
+        <p>No photos found matching exactly these tags.</p>
+    {% endif %}
+
+</body>
+</html>
