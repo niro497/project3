@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Likes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/photos/{{ photo_id }}">Back to Photo</a>
+
+    <h1>Users who liked this photo</h1>
+
+    {% if users %}
+        {% for user in users %}
+            <div class="card">
+                <p>{{ user[0] }} {{ user[1] }}</p>
+                <small>{{ user[2] }}</small>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No likes yet.</p>
+    {% endif %}
+</body>
+</html>

@@ -167,6 +167,24 @@ def view_albums():
 @app.route('/albums/<int:album_id>')
 def view_album(album_id):
     cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT album_name, user_id
+        FROM albums
+        WHERE album_id = %s
+        """, (album_id,))
+    album = cursor.fetchone()
+
+    if not album:
+        cursor.close()
+        return redirect(url_for("view_albums"))
+    
+    album_name = album[0]
+
+    album_owner_id = album[1]
+    current_user_id = session.get("user_id")
+    is_owner = (int(current_user_id) == int(album_owner_id)) if current_user_id else False
+
     cursor.execute("""
                    SELECT p.photo_id, p.caption, p.data
                    FROM photos p
@@ -187,7 +205,7 @@ def view_album(album_id):
         })
 
     cursor.close()
-    return render_template("album.html", photos=photos_list, album_id=album_id)
+    return render_template("album.html", photos=photos_list, album_id=album_id, album_name=album_name, is_owner=is_owner)
 
 #TODO: πρέπει να μπορούν να διαγράφουν albums
 @app.route("/create-album", methods = ["GET", "POST"])
@@ -225,7 +243,7 @@ def upload_photo(album_id):
     cursor.execute("select user_id from albums where album_id = %s", (album_id,))
     user = cursor.fetchone()
 
-    if user[0] != current_user_id:
+    if int(user[0]) != int(current_user_id):
         flash("This album is created from another user. You cannot add a photo here", "error")
         cursor.close()
         return redirect(url_for("view_albums"))
@@ -277,6 +295,100 @@ def upload_photo(album_id):
         return redirect(url_for("view_album", album_id=album_id))
     
     return render_template("upload-photo.html", album_id=album_id)
+
+@app.route("/albums/<int:album_id>/delete", methods=["POST"])
+def delete_album(album_id):
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT user_id
+        FROM albums
+        WHERE album_id = %s
+    """, (album_id,))
+
+    album = cursor.fetchone()
+
+    if not album:
+        cursor.close()
+        return redirect(url_for("view_albums"))
+    
+    owner_id = album[0]
+
+    if int(owner_id) != int(current_user_id):
+        cursor.close()
+        flash("You cannot delete an album that belongs to another user!", "error")
+        return redirect(url_for("view_albums"))
+    
+    cursor.execute("""
+        DELETE FROM albums
+        WHERE album_id = %s
+    """, (album_id,))
+
+    conn.commit()
+    cursor.close()
+
+    return redirect(url_for("view_albums"))
+
+@app.route("/photos/<int:photo_id>/delete", methods=["POST"])
+def delete_photo(photo_id):
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT p.album_id, a.user_id
+        FROM photos p
+        JOIN albums a ON p.album_id = a.album_id
+        WHERE p.photo_id = %s
+    """, (photo_id,))
+
+    photo_info = cursor.fetchone()
+
+    if not photo_info:
+        cursor.close()
+        return redirect(url_for("view_albums"))
+    
+    album_id = photo_info[0]
+    owner_id = photo_info[1]
+
+    if int(owner_id) != int(current_user_id):
+        cursor.close()
+        flash("You cannot delete a photo that belongs to another user!", "error")
+        return redirect(url_for("view_album", album_id=album_id))
+    
+    cursor.execute("""
+        DELETE FROM photos
+        WHERE photo_id = %s
+    """, (photo_id,))
+
+    conn.commit()
+    cursor.close()
+
+    return redirect(url_for("view_album", album_id=album_id))
+
+@app.route("/photos/<int:photo_id>/likes")
+def view_likes(photo_id):
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT u.first_name, u.last_name, u.email
+        FROM likes l
+        JOIN users u ON l.user_id = u.user_id
+        WHERE l.photo_id = %s
+        ORDER BY u.first_name, u.last_name
+    """, (photo_id,))
+
+    users = cursor.fetchall()
+    cursor.close()
+
+    return render_template("likes.html", users=users, photo_id=photo_id)
 
 @app.route("/popular-tags")
 def popular_tags():
@@ -374,6 +486,142 @@ def search_photos():
 
     return render_template("search.html")
 
+@app.route("/photos/<int:photo_id>")
+def view_photo(photo_id):
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM likes
+        WHERE photo_id = %s
+    """, (photo_id,))
+
+    likes_count = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT c.comment_text, c.comment_date, u.first_name, u.last_name
+        FROM comments c
+        JOIN users u ON c.user_id = u.user_id
+        WHERE c.photo_id = %s
+    """, (photo_id,))
+
+    comments = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT p.photo_id, p.caption, p.data, a.user_id
+        FROM photos p
+        JOIN albums a ON p.album_id = a.album_id
+        WHERE p.photo_id = %s
+    """, (photo_id,))
+
+    photo = cursor.fetchone()
+    cursor.close()
+
+    if not photo:
+        return redirect(url_for("view_albums"))
+
+    photo_id, caption, photo_data, owner_id = photo
+
+    current_user_id = session.get("user_id")
+    is_owner = (int(current_user_id) == int(owner_id)) if current_user_id else False
+
+    encoded_photo = base64.b64encode(photo_data).decode('utf-8')
+    photo_src = f"data:image/jpeg;base64,{encoded_photo}"
+
+    return render_template(
+        "photo.html",
+        photo={
+            "photo_id": photo_id,
+            "caption": caption,
+            "data": photo_src
+        },
+        likes_count=likes_count,
+        comments=comments,
+        is_owner=is_owner
+    )
+
+@app.route("/photos/<int:photo_id>/comment", methods=["POST"])
+def add_comment(photo_id):
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    comment_text = request.form["comment_text"]
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT a.user_id
+        FROM photos p
+        JOIN albums a ON p.album_id = a.album_id
+        WHERE p.photo_id = %s
+    """, (photo_id,))
+
+    owner = cursor.fetchone()
+
+    if not owner:
+        cursor.close()
+        return redirect(url_for("view_albums"))
+    
+    owner_id = owner[0]
+
+    if int(owner_id) != int(current_user_id):
+        cursor.close()
+        flash("You cannot comment on your own photo!", "error")
+        return redirect(url_for("view_photo", photo_id=photo_id))
+
+    cursor.execute("""
+    INSERT INTO comments (photo_id, user_id, comment_text)
+    VALUES (%s, %s, %s)
+    """, (photo_id, current_user_id, comment_text))
+
+    conn.commit()
+    cursor.close()
+
+    return redirect(url_for("view_photo", photo_id=photo_id))
+
+@app.route("/photos/<int:photo_id>/like", methods=["POST"])
+def like_photo(photo_id):
+    current_user_id = session.get("user_id")
+
+    if not current_user_id:
+        return redirect(url_for("login"))
+    
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO likes (user_id, photo_id)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (current_user_id, photo_id))
+
+    conn.commit()
+    cursor.close()
+
+    return redirect(url_for("view_photo", photo_id=photo_id))
+
+@app.route("/comment-search", methods=["GET", "POST"])
+def comment_search():
+    results = []
+    query = "" 
+    
+    if request.method == "POST":
+        query = request.form.get("query", "").strip().lower()
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.user_id, u.first_name, u.last_name, c.photo_id, c.comment_text, c.comment_date
+            FROM comments c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE LOWER(c.comment_text) = LOWER(%s)
+            ORDER BY c.comment_date DESC
+        """, (query,))
+
+        results = cursor.fetchall()
+        cursor.close()
+
+    return render_template("comment-search.html", results=results, query=query)
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

@@ -16,8 +16,8 @@
     {% if photos %}
         {% for photo in photos %}
             <div>
-                <h3>{{ photo.caption }}</h3>
-                <img src="{{ photo.data }}" style="max-width: 300px;">
+                <a href = "/photos/{{ photo.photo_id }}">
+                <img src="{{ photo.data }}" style = "max-width: 300px;">
             </div>
             <hr>
         {% endfor %}

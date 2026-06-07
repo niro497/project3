@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comment Search</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <a href="/">Back Home</a>
+
+    <h1>Search Comments</h1>
+
+    <form method="POST">
+        <label>Comment text:</label>
+        <input type="text" name="query" value="{{ query }}" required>
+
+        <button type="submit">Search</button>
+    </form>
+
+    {% if query %}
+        <h2>Results for "{{ query }}"</h2>
+
+        {% if results %}
+            {% for row in results %}
+                <div class="card">
+                    <p>{{ row[1] }} {{ row[2] }}</p>
+                    <p>{{ row[4] }}</p>
+                    <small>{{ row[5] }}</small>
+                    <a href="/photos/{{ row[3] }}">View photo</a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No registered users have made this exact comment.</p>
+        {% endif %}
+    {% endif %}
+
+</body>
+</html>
