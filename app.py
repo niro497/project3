@@ -26,7 +26,7 @@ def home():
 
 @app.route("/register", methods=["GET", "POST"]) 
 def register():
-    
+
     if request.method == 'POST':
         first_name = request.form['first_name']
         last_name = request.form['last_name']
@@ -152,8 +152,46 @@ def friends():
     my_friends = cursor.fetchall()
 
 
-    return render_template("friends.html", friends=my_friends)
-
+    #return render_template("friends.html", friends=my_friends)
+ 
+    # Αναζήτηση χρηστών
+    query = request.args.get("q", "").strip()
+    search_results = []
+    if query:
+        cursor.execute("""
+            SELECT user_id, first_name, last_name, email
+            FROM users
+            WHERE user_id != %s
+              AND (LOWER(first_name) LIKE LOWER(%s)
+                OR LOWER(last_name)  LIKE LOWER(%s)
+                OR LOWER(email)      LIKE LOWER(%s))
+            ORDER BY last_name, first_name
+        """, (current_user_id, f"%{query}%", f"%{query}%", f"%{query}%"))
+        search_results = cursor.fetchall()
+ 
+    cursor.close()
+    return render_template("friends.html", friends=my_friends,
+                           search_results=search_results, query=query)
+ 
+ 
+@app.route("/friends/add/<int:friend_id>", methods=["POST"])
+def add_friend(friend_id):
+    
+    current_user_id = session.get("user_id")
+    
+    u1 = min(current_user_id, friend_id)
+    u2 = max(current_user_id, friend_id)
+ 
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO friends (user1_id, user2_id)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (u1, u2))
+    conn.commit()
+    cursor.close()
+ 
+    return redirect(url_for("friends", q=request.form.get("q", "")))
 
 @app.route("/albums")
 def view_albums():

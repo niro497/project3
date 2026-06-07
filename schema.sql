@@ -141,36 +141,6 @@ CREATE OR REPLACE TRIGGER trg_no_self_like
     FOR EACH ROW
     EXECUTE FUNCTION check_like_not_own_photo();
 
-CREATE OR REPLACE FUNCTION check_like_not_own_photo()
-RETURNS TRIGGER AS $$
-DECLARE
-    photo_owner_id INT;
-BEGIN
-    SELECT a.user_id
-    INTO photo_owner_id
-    FROM photos p
-    JOIN albums a ON p.album_id = a.album_id
-    WHERE p.photo_id = NEW.photo_id;
- 
-    IF photo_owner_id IS NULL THEN
-        RAISE EXCEPTION 'Photo with id % does not exist.', NEW.photo_id;
-    END IF;
- 
-    IF NEW.user_id = photo_owner_id THEN
-        RAISE EXCEPTION
-            'User % cannot like their own photo (photo_id=%).',
-            NEW.user_id, NEW.photo_id;
-    END IF;
- 
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
- 
-CREATE OR REPLACE TRIGGER trg_no_self_like
-    BEFORE INSERT ON likes
-    FOR EACH ROW
-    EXECUTE FUNCTION check_like_not_own_photo();
-
 CREATE OR REPLACE FUNCTION normalize_friendship_order()
 RETURNS TRIGGER AS $$
 DECLARE
