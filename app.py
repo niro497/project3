@@ -499,9 +499,9 @@ def view_photo(photo_id):
     likes_count = cursor.fetchone()[0]
 
     cursor.execute("""
-        SELECT c.comment_text, c.comment_date, u.first_name, u.last_name
+        SELECT c.comment_text, c.comment_date, u.first_name, u.last_name, c.guest_name
         FROM comments c
-        JOIN users u ON c.user_id = u.user_id
+        LEFT JOIN users u ON c.user_id = u.user_id
         WHERE c.photo_id = %s
     """, (photo_id,))
 
@@ -543,10 +543,6 @@ def view_photo(photo_id):
 @app.route("/photos/<int:photo_id>/comment", methods=["POST"])
 def add_comment(photo_id):
     current_user_id = session.get("user_id")
-
-    if not current_user_id:
-        return redirect(url_for("login"))
-    
     comment_text = request.form["comment_text"]
 
     cursor = conn.cursor()
@@ -565,16 +561,25 @@ def add_comment(photo_id):
         return redirect(url_for("view_albums"))
     
     owner_id = owner[0]
+    
+    if current_user_id:
+        if int(owner_id) == int(current_user_id):
+            cursor.close()
+            flash("You cannot comment on your own photo!", "error")
+            return redirect(url_for("view_photo", photo_id=photo_id))
+        
+        cursor.execute("""
+            INSERT INTO comments (photo_id, user_id, comment_text)
+            VALUES (%s, %s, %s)
+        """, (photo_id, current_user_id, comment_text))
 
-    if int(owner_id) != int(current_user_id):
-        cursor.close()
-        flash("You cannot comment on your own photo!", "error")
-        return redirect(url_for("view_photo", photo_id=photo_id))
+    else:
+        guest_name = request.form["guest_name"]
 
-    cursor.execute("""
-    INSERT INTO comments (photo_id, user_id, comment_text)
-    VALUES (%s, %s, %s)
-    """, (photo_id, current_user_id, comment_text))
+        cursor.execute("""
+            INSERT INTO comments (photo_id, guest_name, comment_text)
+            VALUES (%s, %s, %s)
+        """, (photo_id, guest_name, comment_text))
 
     conn.commit()
     cursor.close()
@@ -624,4 +629,4 @@ def comment_search():
     return render_template("comment-search.html", results=results, query=query)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

@@ -7,6 +7,12 @@
 <body>
     <h1>{{ album_name }}</h1>
 
+    {% if is_owner %}
+        <form method="POST" action="/albums/{{ album_id }}/delete" onsubmit="return confirm('Are you sure you want to delete this album?');">
+            <button type="submit">Delete Album</button>
+        </form>
+    {% endif %}
+
     <a href="/albums">Back to Albums</a>
 
     <a href="/albums/{{ album_id }}/upload-photo">Upload Photo</a>
