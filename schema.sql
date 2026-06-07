@@ -14,7 +14,7 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     birthdate DATE,
     hometown VARCHAR(100),
-    gender VARCHAR(10), --TODO: CHECK an einai M, F
+    gender VARCHAR(1), 
     password VARCHAR(255) NOT NULL
 );
 
@@ -23,8 +23,7 @@ CREATE TABLE friends (
     user2_id INT NOT NULL,
     PRIMARY KEY (user1_id, user2_id),
     FOREIGN KEY (user1_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (user2_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CHECK (user1_id < user2_id) -- δεν το καταλαβαίνω
+    FOREIGN KEY (user2_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE albums (
@@ -79,51 +78,122 @@ CREATE TABLE likes (
     FOREIGN KEY (photo_id) REFERENCES photos(photo_id) ON DELETE CASCADE
 );
 
----- R1: Χρήστης δεν μπορεί να σχολιάσει τη δική του φωτογραφία.
----- Υλοποιείται ως TRIGGER (δεν μπορεί να εκφραστεί με απλό CHECK
----- γιατί χρειάζεται join με Albums).
---CREATE OR REPLACE FUNCTION fn_no_self_comment()
---RETURNS TRIGGER LANGUAGE plpgsql AS $$
---DECLARE
---    v_photo_owner INT;
---BEGIN
---    SELECT u.user_id INTO v_photo_owner
---    FROM   Photos p
---    JOIN   Albums a ON a.album_id = p.album_id
---    JOIN   Users  u ON u.user_id  = a.owner_id
---    WHERE  p.photo_id = NEW.photo_id;
---
---    IF NEW.user_id IS NOT NULL AND NEW.user_id = v_photo_owner THEN
---        RAISE EXCEPTION 'Ο χρήστης δεν μπορεί να σχολιάσει τη δική του φωτογραφία.';
---    END IF;
---    RETURN NEW;
---END;
---$$;
---
---CREATE TRIGGER trg_no_self_comment
---BEFORE INSERT ON Comments
---FOR EACH ROW EXECUTE FUNCTION fn_no_self_comment();
---
---
----- R3: Ένας χρήστης δεν μπορεί να κάνει like στη δική του φωτογραφία.
---CREATE OR REPLACE FUNCTION fn_no_self_like()
---RETURNS TRIGGER LANGUAGE plpgsql AS $$
---DECLARE
---    v_photo_owner INT;
---BEGIN
---    SELECT a.owner_id INTO v_photo_owner
---    FROM   Photos p
---    JOIN   Albums a ON a.album_id = p.album_id
---    WHERE  p.photo_id = NEW.photo_id;
---
---    IF NEW.user_id = v_photo_owner THEN
---        RAISE EXCEPTION 'Ο χρήστης δεν μπορεί να κάνει like στη δική του φωτογραφία.';
---    END IF;
---    RETURN NEW;
---END;
---$$;
---
---CREATE TRIGGER trg_no_self_like
---BEFORE INSERT ON Likes
---FOR EACH ROW EXECUTE FUNCTION fn_no_self_like();
-----
+CREATE OR REPLACE FUNCTION check_comment_not_own_photo()
+RETURNS TRIGGER AS $$
+DECLARE
+    photo_owner_id INT;
+BEGIN
+    --βρες τον ιδιοκτήτη της φωτογραφίας μέσω του album
+    SELECT a.user_id
+    INTO photo_owner_id
+    FROM photos p
+    JOIN albums a ON p.album_id = a.album_id
+    WHERE p.photo_id = NEW.photo_id;
+ 
+    IF photo_owner_id IS NULL THEN
+        RAISE EXCEPTION 'Photo with id % does not exist.', NEW.photo_id;
+    END IF;
+ 
+    --ανν ο commenter είναι ιδιοκτήτης της φωτο, απόρριψη
+    IF NEW.user_id = photo_owner_id THEN
+        RAISE EXCEPTION
+            'User % cannot comment on their own photo (photo_id=%).',
+            NEW.user_id, NEW.photo_id;
+    END IF;
+ 
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_no_self_comment
+    BEFORE INSERT ON comments
+    FOR EACH ROW
+    EXECUTE FUNCTION check_comment_not_own_photo();
+
+CREATE OR REPLACE FUNCTION check_like_not_own_photo()
+RETURNS TRIGGER AS $$
+DECLARE
+    photo_owner_id INT;
+BEGIN
+    SELECT a.user_id
+    INTO photo_owner_id
+    FROM photos p
+    JOIN albums a ON p.album_id = a.album_id
+    WHERE p.photo_id = NEW.photo_id;
+ 
+    IF photo_owner_id IS NULL THEN
+        RAISE EXCEPTION 'Photo with id % does not exist.', NEW.photo_id;
+    END IF;
+ 
+    IF NEW.user_id = photo_owner_id THEN
+        RAISE EXCEPTION
+            'User % cannot like their own photo (photo_id=%).',
+            NEW.user_id, NEW.photo_id;
+    END IF;
+ 
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+ 
+CREATE OR REPLACE TRIGGER trg_no_self_like
+    BEFORE INSERT ON likes
+    FOR EACH ROW
+    EXECUTE FUNCTION check_like_not_own_photo();
+
+CREATE OR REPLACE FUNCTION check_like_not_own_photo()
+RETURNS TRIGGER AS $$
+DECLARE
+    photo_owner_id INT;
+BEGIN
+    SELECT a.user_id
+    INTO photo_owner_id
+    FROM photos p
+    JOIN albums a ON p.album_id = a.album_id
+    WHERE p.photo_id = NEW.photo_id;
+ 
+    IF photo_owner_id IS NULL THEN
+        RAISE EXCEPTION 'Photo with id % does not exist.', NEW.photo_id;
+    END IF;
+ 
+    IF NEW.user_id = photo_owner_id THEN
+        RAISE EXCEPTION
+            'User % cannot like their own photo (photo_id=%).',
+            NEW.user_id, NEW.photo_id;
+    END IF;
+ 
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+ 
+CREATE OR REPLACE TRIGGER trg_no_self_like
+    BEFORE INSERT ON likes
+    FOR EACH ROW
+    EXECUTE FUNCTION check_like_not_own_photo();
+
+CREATE OR REPLACE FUNCTION normalize_friendship_order()
+RETURNS TRIGGER AS $$
+DECLARE
+    lo INT;
+    hi INT;
+BEGIN
+    -- Αποτροπή self-friendship
+    IF NEW.user1_id = NEW.user2_id THEN
+        RAISE EXCEPTION 'A user cannot be friends with themselves (user_id=%).', NEW.user1_id;
+    END IF;
+ 
+    -- Κανονικοποίηση ώστε user1_id < user2_id πάντα
+    IF NEW.user1_id > NEW.user2_id THEN
+        lo := NEW.user2_id;
+        hi := NEW.user1_id;
+        NEW.user1_id := lo;
+        NEW.user2_id := hi;
+    END IF;
+ 
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+ 
+CREATE OR REPLACE TRIGGER trg_normalize_friends
+    BEFORE INSERT OR UPDATE ON friends
+    FOR EACH ROW
+    EXECUTE FUNCTION normalize_friendship_order();
