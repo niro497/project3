@@ -5,20 +5,54 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
+ 
     <h1>View and add friends</h1>
-    <h2>My fiends</h2>
+ 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+ 
+    <h2>My friends</h2>
     {% if friends %}
         <ul>
             {% for friend in friends %}
-                <li>{{ friend[0] }} {{ friend[1] }} {{ friend[2] }} {{ friend[3] }}</li>
+                <li>{{ friend[1] }} {{ friend[2] }} {{ friend[3] }}</li>
             {% endfor %}
         </ul>
     {% else %}
         <p>Friends found: 0</p>
     {% endif %}
-
+ 
+    <h2>Find Friends</h2>
+    <form method="GET" action="{{ url_for('friends') }}">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search by name or email..." />
+        <button type="submit">Search</button>
+    </form>
+ 
+    {% if query %}
+        {% if search_results %}
+            <ul>
+                {% for user in search_results %}
+                    <li>
+                        {{ user[1] }} {{ user[2] }} ({{ user[3] }})
+                        <form method="POST" action="{{ url_for('add_friend', friend_id=user[0]) }}" style="display:inline">
+                            <input type="hidden" name="q" value="{{ query }}" />
+                            <button type="submit">Add Friend</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No users found for "{{ query }}".</p>
+        {% endif %}
+    {% endif %}
+ 
     <br>
     <a href="/">Επιστροφή στην Αρχική</a>
+ 
 </body>
 </html>
