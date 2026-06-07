@@ -62,7 +62,8 @@ CREATE TABLE photo_tags (
 CREATE TABLE comments (
     comment_id SERIAL PRIMARY KEY,
     photo_id INT NOT NULL,
-    user_id INT NOT NULL,
+    user_id INT,
+    guest_name VARCHAR(100),
     comment_text TEXT NOT NULL,
     comment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (photo_id) REFERENCES photos(photo_id) ON DELETE CASCADE,
