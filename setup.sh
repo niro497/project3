@@ -28,6 +28,7 @@ fi
 
 echo ">>> Applying database schema from schema.sql..."
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f schema.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f insert_data.sql
 
 echo ">>> Starting Python application..."
 python3 "$APP_FILE"
